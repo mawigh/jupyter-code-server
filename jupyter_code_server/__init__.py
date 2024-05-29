@@ -1,15 +1,9 @@
 from shutil import which
 import os
 from tempfile import mkstemp
+import subprocess
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-
-
-def pre_start_hook():
-    """ 
-    Useful for loading code-server via e.g. Lmod
-    """
-    pass
 
 
 def which_code_server():
@@ -17,6 +11,26 @@ def which_code_server():
     if not command:
         raise FileNotFoundError('Could not find executable code-server!')
     return command
+
+
+def pre_start_hook():
+    """
+    Useful for loading code-server via e.g. Lmod
+    """
+    try:
+        which_code_server()
+    except FileNotFoundError:
+        LMOD_CMD = os.environ.get('LMOD_CMD', None)
+        MODULEPATH = os.environ.get('MODULEPATH', None)
+        if LMOD_CMD and MODULEPATH:
+            command_to_load = (LMOD_CMD, 'python', '--terse', 'load', 'tools/code-server/4.22.1')
+
+            subp = subprocess.run(command_to_load, capture_output=True, text=True)
+            if not subp.returncode == 0:
+                raise OSError("Error executing $LMOD_CMD command to preload code-server: " + str(subp.stderr))
+            exec(subp.stdout)
+
+            which_code_server()
 
 
 def setup_code_server():
